@@ -33,6 +33,9 @@ resource "aws_db_instance" "ewr_is" {
     name = "ewr_is"
     storage_type = "gp2"
     username = "ewr"
+    # not ideal to stick a password here, but this is buried in the VPC 
+    # private subnet, so the risk doesn't seem too high.
+    # TODO: figure out a better way
     password = "hbTrrgZ16lo6T2mkJIyj"
     skip_final_snapshot = true
     vpc_security_group_ids = [aws_security_group.ewr_is_db.id]
