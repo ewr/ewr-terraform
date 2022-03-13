@@ -81,7 +81,7 @@ resource "aws_ecs_task_definition" "ewr_is_app" {
           },
           {
               "name": "S3_BUCKET",
-              "value": "ewr.is-assets-2"
+              "value": "ewr.is-assets-3"
           },
           {
               "name": "RAILS_ENV",
