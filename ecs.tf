@@ -289,16 +289,16 @@ resource "aws_alb" "ewr_is" {
   depends_on = [aws_internet_gateway.igw]
 }
 
-resource "aws_alb_listener" "ewr_is_http_tmp" {
-    load_balancer_arn = aws_alb.ewr_is.arn
-    port = "80"
-    protocol = "HTTP"
+# resource "aws_alb_listener" "ewr_is_http_tmp" {
+#     load_balancer_arn = aws_alb.ewr_is.arn
+#     port = "80"
+#     protocol = "HTTP"
 
-    default_action {
-        type = "forward"
-        target_group_arn = aws_lb_target_group.ewr_is_app.arn
-    }
-}
+#     default_action {
+#         type = "forward"
+#         target_group_arn = aws_lb_target_group.ewr_is_app.arn
+#     }
+# }
 
 resource "aws_route53_zone" "ewr_is" {
     name = "ewr.is"
@@ -316,43 +316,67 @@ resource "aws_route53_record" "ewr_is_blog" {
     }
 }
 
-# resource "aws_alb_listener" "ewr_is_http" {
-#   load_balancer_arn = aws_alb.ewr_is.arn
-#   port              = "80"
-#   protocol          = "HTTP"
+resource "aws_alb_listener" "ewr_is_http" {
+  load_balancer_arn = aws_alb.ewr_is.arn
+  port              = "80"
+  protocol          = "HTTP"
 
-#   default_action {
-#     type = "redirect"
+  default_action {
+    type = "redirect"
 
-#     redirect {
-#       port        = "443"
-#       protocol    = "HTTPS"
-#       status_code = "HTTP_301"
-#     }
-#   }
-# }
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
 
-# resource "aws_alb_listener" "ewr_is_https" {
-#   load_balancer_arn = aws_alb.ewr_is.arn
-#   port              = "443"
-#   protocol          = "HTTPS"
-#   certificate_arn   = aws_acm_certificate.ewr_is.arn
+resource "aws_alb_listener" "ewr_is_https" {
+  load_balancer_arn = aws_alb.ewr_is.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate.ewr_is.arn
 
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.ewr_is_app.arn
-#   }
-# }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.ewr_is_app.arn
+  }
+}
 
 output "alb_url" {
   value = "http://${aws_alb.ewr_is.dns_name}"
 }
 
-# resource "aws_acm_certificate" "ewr_is" {
-#   domain_name       = "ewr.is"
-#   validation_method = "DNS"
-# }
+resource "aws_acm_certificate" "ewr_is" {
+  domain_name       = "*.ewr.is"
+  validation_method = "DNS"
 
-# output "domain_validations" {
-#   value = aws_acm_certificate.sun_api.domain_validation_options
-# }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "validation" {
+    for_each = {
+        for dvo in aws_acm_certificate.ewr_is.domain_validation_options : dvo.domain_name => {
+            name   = dvo.resource_record_name
+            record = dvo.resource_record_value
+            type   = dvo.resource_record_type
+        }
+    }
+
+    allow_overwrite = true
+    name            = each.value.name
+    records         = [each.value.record]
+    ttl             = 60
+    type            = each.value.type
+
+    zone_id = aws_route53_zone.ewr_is.zone_id
+}
+
+resource "aws_acm_certificate_validation" "ewr_is" {
+    certificate_arn = aws_acm_certificate.ewr_is.arn
+
+    validation_record_fqdns = [for record in aws_route53_record.validation : record.fqdn]
+}

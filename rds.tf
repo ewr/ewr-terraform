@@ -30,7 +30,7 @@ resource "aws_db_instance" "ewr_is" {
     engine_version = "8.0"
     instance_class = "db.t3.micro"
     db_subnet_group_name = aws_db_subnet_group.ewr_is_db.name
-    name = "ewr_is"
+    db_name = "ewr_is"
     storage_type = "gp2"
     username = "ewr"
     # not ideal to stick a password here, but this is buried in the VPC 
