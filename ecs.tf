@@ -40,20 +40,31 @@ resource "aws_ecs_service" "ewr_is_app" {
   }
 }
 
-# The task definition for our app.
-resource "aws_ecs_task_definition" "ewr_is_app" {
-  family = "ewr-is-app"
+resource "aws_ecs_service" "ewr_is_worker" {
+    name = "ewr-is-worker"
+    task_definition = aws_ecs_task_definition.ewr_is_worker.arn
+    cluster = aws_ecs_cluster.ewr_is.id
+    launch_type = "FARGATE"
+    enable_execute_command = true
 
-  container_definitions = <<EOF
-  [
-    {
-      "name": "ewr-is-app",
-      "image": "822205560131.dkr.ecr.us-east-2.amazonaws.com/ewr-is-images:v1",
-      "portMappings": [
-        {
-          "containerPort": 3000
-        }
-      ],
+    desired_count = 1
+
+    network_configuration {
+      assign_public_ip = false
+
+      security_groups = [
+          aws_security_group.egress_all.id
+      ]
+
+      subnets = [
+          aws_subnet.private_a.id,
+          aws_subnet.private_b.id
+      ]
+    }
+}
+
+locals {
+    common_container_definition = <<EOF
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
@@ -90,6 +101,10 @@ resource "aws_ecs_task_definition" "ewr_is_app" {
           {
               "name": "S3_BUCKET_HOST_NAME",
               "value": "s3-us-east-2.amazonaws.com"
+          },
+          {
+              "name": "QUEUE",
+              "value": "assets"
           }
       ],
       "secrets": [
@@ -106,9 +121,26 @@ resource "aws_ecs_task_definition" "ewr_is_app" {
               "valueFrom": "arn:aws:ssm:us-east-2:822205560131:parameter/ewr_is/prod/mysql_password"
           }
       ]
+    EOF
+}
+
+# The task definition for our app.
+resource "aws_ecs_task_definition" "ewr_is_app" {
+  family = "ewr-is-app"
+
+  container_definitions = <<EOF
+  [
+    {
+      "name": "ewr-is-app",
+      "image": "822205560131.dkr.ecr.us-east-2.amazonaws.com/ewr-is-images:v1",
+      "portMappings": [
+        {
+          "containerPort": 3000
+        }
+      ],
+      ${local.common_container_definition}
     }
   ]
-
 EOF
 
   execution_role_arn = aws_iam_role.ewr_is_task_execution_role.arn
@@ -117,6 +149,33 @@ EOF
   # These are the minimum values for Fargate containers.
   cpu                      = 1024
   memory                   = 2048
+  requires_compatibilities = ["FARGATE"]
+
+  # This is required for Fargate containers (more on this later).
+  network_mode = "awsvpc"
+}
+
+resource "aws_ecs_task_definition" "ewr_is_worker" {
+  family = "ewr-is-worker"
+
+  container_definitions = <<EOF
+  [
+    {
+      "name": "ewr-is-worker",
+      "image": "822205560131.dkr.ecr.us-east-2.amazonaws.com/ewr-is-images:v1",
+      "command": ["bundle", "exec", "rake", "resque:work"],
+      "portMappings": [],
+      ${local.common_container_definition}
+    }
+  ]
+EOF
+
+  execution_role_arn = aws_iam_role.ewr_is_task_execution_role.arn
+  task_role_arn = aws_iam_role.ewr_is_task_role.arn
+
+  # These are the minimum values for Fargate containers.
+  cpu                      = 256
+  memory                   = 1024
   requires_compatibilities = ["FARGATE"]
 
   # This is required for Fargate containers (more on this later).
@@ -238,6 +297,22 @@ resource "aws_alb_listener" "ewr_is_http_tmp" {
     default_action {
         type = "forward"
         target_group_arn = aws_lb_target_group.ewr_is_app.arn
+    }
+}
+
+resource "aws_route53_zone" "ewr_is" {
+    name = "ewr.is"
+}
+
+resource "aws_route53_record" "ewr_is_blog" {
+    zone_id = aws_route53_zone.ewr_is.zone_id
+    name = "blog.ewr.is"
+    type = "A"
+
+    alias {
+        name = aws_alb.ewr_is.dns_name
+        zone_id = aws_alb.ewr_is.zone_id
+        evaluate_target_health = false
     }
 }
 
