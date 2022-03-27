@@ -105,6 +105,10 @@ locals {
           {
               "name": "QUEUE",
               "value": "assets"
+          },
+          {
+              "name": "ASSETHOST_SERVER_URL",
+              "value": "https://blog.ewr.is"
           }
       ],
       "secrets": [
