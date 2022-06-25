@@ -330,6 +330,17 @@ resource "aws_route53_record" "ewr_is" {
     }
 }
 
+resource "aws_route53_record" "ewr_is_dkim" {
+  zone_id = aws_route53_zone.ewr_is.zone_id
+  name = "google._domainkey"
+  type = "TXT"
+  ttl = 300
+
+  records = [
+    "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmc79f8mBo8/rO7spZV3+Y9YZAV37iAT4q7lcr1cV650oIOZE5StyC2tO5I6ph/hls4u/yL1HZ30qJqry1W5QIQDGsmZByWmnBZn8DlHF/kazjSYJddkM71bss3n+L0cFuZDM/JuT4tvA8D2EcgRYkM5V06KObgNAmmhK/mNubm+Z+Ktml\"\"dLshBMzrutewz+OuKhlmUMJc3Bb/gJs6ZP+vEMSCPcWSQ7xJqUjcbCUQ1MkPNBcHw/mQmR0Z5jtCAZPj0cbepT+SlkAzW6iSFGbIBVLWGlUWvUPQEtzOh0u8BXxEjZsF0ohnXWeXJbUZoV+u7/Y0BQESg+0n8ESTyQwHQIDAQAB"
+  ]
+}
+
 resource "aws_alb_listener" "ewr_is_http" {
   load_balancer_arn = aws_alb.ewr_is.arn
   port              = "80"
