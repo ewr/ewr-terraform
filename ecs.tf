@@ -108,7 +108,7 @@ locals {
           },
           {
               "name": "ASSETHOST_SERVER_URL",
-              "value": "https://blog.ewr.is"
+              "value": "https://ewr.is"
           }
       ],
       "secrets": [
@@ -150,8 +150,7 @@ EOF
   execution_role_arn = aws_iam_role.ewr_is_task_execution_role.arn
   task_role_arn = aws_iam_role.ewr_is_task_role.arn
 
-  # These are the minimum values for Fargate containers.
-  cpu                      = 1024
+  cpu                      = 512
   memory                   = 2048
   requires_compatibilities = ["FARGATE"]
 
@@ -177,7 +176,6 @@ EOF
   execution_role_arn = aws_iam_role.ewr_is_task_execution_role.arn
   task_role_arn = aws_iam_role.ewr_is_task_role.arn
 
-  # These are the minimum values for Fargate containers.
   cpu                      = 256
   memory                   = 1024
   requires_compatibilities = ["FARGATE"]
@@ -320,6 +318,18 @@ resource "aws_route53_record" "ewr_is_blog" {
     }
 }
 
+resource "aws_route53_record" "ewr_is" {
+    zone_id = aws_route53_zone.ewr_is.zone_id
+    name = "ewr.is"
+    type = "A"
+
+    alias {
+        name = aws_alb.ewr_is.dns_name
+        zone_id = aws_alb.ewr_is.zone_id
+        evaluate_target_health = false
+    }
+}
+
 resource "aws_alb_listener" "ewr_is_http" {
   load_balancer_arn = aws_alb.ewr_is.arn
   port              = "80"
@@ -353,7 +363,7 @@ output "alb_url" {
 }
 
 resource "aws_acm_certificate" "ewr_is" {
-  domain_name       = "*.ewr.is"
+  domain_name       = "ewr.is"
   validation_method = "DNS"
 
   lifecycle {
